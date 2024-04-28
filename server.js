@@ -1,6 +1,7 @@
 import { ApolloServer, gql } from "apollo-server";
 //const { ApolloServer, gql } = require("apollo-server");
 // package.json에 "type": "module" 을 사용하지 않으면 const 방식으로 사용해야 한다.
+import fetch from "node-fetch";
 
 // memory db ///////////////////////////
 let boards = [
@@ -33,12 +34,22 @@ let users = [
 ////////////////////////////////////////
 
 const typeDefs = gql`
+	"""
+	User object represents a user
+	"""
 	type User {
 		id: ID!
 		firstName: String!
 		lastName: String!
+		"""
+		firstName + lastName as a String
+		"""
 		fullName: String!
 	}
+
+	"""
+	Board object represents a board post
+	"""
 	type Board {
 		id: ID!
 		title: String!
@@ -50,10 +61,36 @@ const typeDefs = gql`
 		allUsers: [User!]!
 		allBoards: [Board!]!
 		board(id: ID!): Board
+		allMovies: [Movie!]!
+		movie(id: String!): Movie
 	}
 	type Mutation {
 		postBoard(title: String!, content: String, author: ID!): Board!
 		deleteBoard(id: ID!): Boolean!
+	}
+
+	type Movie {
+		id: Int!
+		url: String!
+		imdb_code: String!
+		title: String!
+		title_english: String!
+		title_long: String!
+		slug: String!
+		year: Int!
+		rating: Float!
+		runtime: Float!
+		genres: [String]!
+		summary: String
+		description_full: String!
+		synopsis: String
+		yt_trailer_code: String!
+		language: String!
+		background_image: String!
+		background_image_original: String!
+		small_cover_image: String!
+		medium_cover_image: String!
+		large_cover_image: String!
 	}
 `;
 /*
@@ -93,6 +130,18 @@ const resolvers = {
 			return boards.find((board) => board.id === id);
 		},
 		// argument호출시 root를 무조건 첫번째 인자로 들어가야 한다. 그 다음이 argument이다. board(_, {id}){ 이런식으로 사용해도 된다.
+
+		// REST API를 graphQL로 호출하는 형태이다.
+		allMovies() {
+			return fetch("https://yts.mx/api/v2/list_movies.json")
+				.then((r) => r.json())
+				.then((json) => json.data.movies);
+		},
+		movie(_, { id }) {
+			return fetch(`https://yts.mx/api/v2/movie_details.json?movie_id=${id}`)
+				.then((r) => r.json())
+				.then((json) => json.data.movie);
+		},
 	},
 	Mutation: {
 		postBoard(_, { title, author }) {
@@ -129,7 +178,7 @@ const resolvers = {
 			return user;
 		},
 	},
-/*
+	/*
 graphQL은 요청에 따라서 resolver의 Query의 allUsers()를 실행하고, 리턴값을 보내고 보니, fullName이 없다는 것을 알게 되고, 
 다시 resolver를 이용해 User의 fullName이 있는지 찾으면서 User밑의 fullName()함수가 실행이 되게 되는 것이다. 
 그러면서 root로 값을 찍어보면 이전에 받아온 상위 값이 저장이 된 상태이다.
